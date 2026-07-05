@@ -3,7 +3,6 @@ require("dotenv").config();
 const express = require("express");
 const multer = require("multer");
 const fs = require("fs");
-const path = require("path");
 
 const { createClient } = require("@supabase/supabase-js");
 
@@ -28,45 +27,42 @@ app.get("/", (req, res) => {
 });
 
 //=====================================================
-// UPLOAD PDF (FIXADO)
+// UPLOAD PDF
 //=====================================================
-app.post("/upload-pdf", upload.single("file"), async (req, res) => {
+app.post("/upload-pdf", async (req, res) => {
     try {
 
-        if (!req.file) {
-            return res.status(400).json({ erro: "arquivo não enviado" });
-        }
+        const chunks = [];
 
-        const fileBuffer = fs.readFileSync(req.file.path);
+        req.on("data", chunk => chunks.push(chunk));
 
-        const fileName = `uploads/${Date.now()}_${req.file.originalname}`;
+        req.on("end", async () => {
 
-        const { data, error } = await supabase
-            .storage
-            .from("pdfs")
-            .upload(fileName, fileBuffer, {
-                contentType: "application/pdf",
-                upsert: true
+            const buffer = Buffer.concat(chunks);
+
+            const fileName = `pedidos/${Date.now()}.pdf`;
+
+            const { error } = await supabase
+                .storage
+                .from("pdfs")
+                .upload(fileName, buffer, {
+                    contentType: "application/pdf",
+                    upsert: true
+                });
+
+            if (error) {
+                return res.status(500).json(error);
+            }
+
+            res.json({
+                ok: true,
+                caminho: fileName
             });
 
-        fs.unlinkSync(req.file.path);
-
-        if (error) {
-            return res.status(500).json(error);
-        }
-
-        const { data: publicUrl } = supabase
-            .storage
-            .from("pdfs")
-            .getPublicUrl(fileName);
-
-        return res.json({
-            arquivo: fileName,
-            url: publicUrl.publicUrl
         });
 
     } catch (err) {
-        return res.status(500).json({ erro: err.message });
+        res.status(500).json(err.message);
     }
 });
 
@@ -162,29 +158,6 @@ app.get("/pedidos", async (req, res) => {
     res.json(lista);
 });
 
-app.get("/pedidos/:numero", async (req, res) => {
-
-    const { numero } = req.params;
-
-    const { data: pedido, error } = await supabase
-        .from("pedidos")
-        .select("*")
-        .eq("numero", numero)
-        .single();
-
-    if (error) return res.status(404).json(error);
-
-    const { data: itens, error: erroItens } = await supabase
-        .from("pedido_itens")
-        .select("*")
-        .eq("pedido_id", pedido.id)
-        .order("id");
-
-    if (erroItens) return res.status(500).json(erroItens);
-
-    res.json({ pedido, itens });
-});
-
 app.post("/pedidos", async (req, res) => {
 
     const numero = req.body.numero;
@@ -206,11 +179,6 @@ app.post("/pedidos", async (req, res) => {
 
         if (error) return res.status(500).json(error);
 
-        await supabase
-            .from("pedido_itens")
-            .delete()
-            .eq("pedido_id", existente.id);
-
         return res.json(data);
     }
 
@@ -226,35 +194,41 @@ app.post("/pedidos", async (req, res) => {
 });
 
 //=====================================================
-// ITENS
+// UPLOAD SIMPLES (COMPATÍVEL VBA)
 //=====================================================
-app.post("/pedido-itens", async (req, res) => {
+app.post("/upload-pdf", upload.single("file"), async (req, res) => {
+
+    if (!req.file) {
+        return res.status(400).json({ erro: "sem arquivo" });
+    }
+
+    const fileBuffer = fs.readFileSync(req.file.path);
+
+    const fileName = `pedidos/${Date.now()}.pdf`;
 
     const { data, error } = await supabase
-        .from("pedido_itens")
-        .insert([req.body])
-        .select()
-        .single();
+        .storage
+        .from("pdfs")
+        .upload(fileName, fileBuffer, {
+            contentType: "application/pdf",
+            upsert: true
+        });
 
-    if (error) return res.status(500).json(error);
+    fs.unlinkSync(req.file.path);
 
-    res.status(201).json(data);
-});
-
-//=====================================================
-app.get("/upload-pdf", (req, res) => {
+    if (error) {
+        console.log(error);
+        return res.status(500).json(error);
+    }
 
     res.json({
-        status: "OK",
-        mensagem: "Endpoint ativo. Use POST para enviar PDF."
+        ok: true,
+        file: fileName
     });
-
 });
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-    console.log("=================================");
-    console.log(" CROMA V4 API ONLINE");
-    console.log(" Porta:", PORT);
-    console.log("=================================");
+    console.log("CROMA V4 ONLINE", PORT);
 });
