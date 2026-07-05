@@ -29,41 +29,37 @@ app.get("/", (req, res) => {
 //=====================================================
 // UPLOAD PDF
 //=====================================================
-app.post("/upload-pdf", async (req, res) => {
-    try {
+app.post("/upload-pdf", (req, res) => {
 
-        const chunks = [];
+    const chunks = [];
 
-        req.on("data", chunk => chunks.push(chunk));
+    req.on("data", chunk => chunks.push(chunk));
 
-        req.on("end", async () => {
+    req.on("end", async () => {
 
-            const buffer = Buffer.concat(chunks);
+        const buffer = Buffer.concat(chunks);
 
-            const fileName = `pedidos/${Date.now()}.pdf`;
+        const fileName = `pedidos/${Date.now()}.pdf`;
 
-            const { error } = await supabase
-                .storage
-                .from("pdfs")
-                .upload(fileName, buffer, {
-                    contentType: "application/pdf",
-                    upsert: true
-                });
-
-            if (error) {
-                return res.status(500).json(error);
-            }
-
-            res.json({
-                ok: true,
-                caminho: fileName
+        const { error } = await supabase
+            .storage
+            .from("pdfs")
+            .upload(fileName, buffer, {
+                contentType: "application/pdf",
+                upsert: true
             });
 
+        if (error) {
+            return res.status(500).json(error);
+        }
+
+        res.json({
+            ok: true,
+            file: fileName
         });
 
-    } catch (err) {
-        res.status(500).json(err.message);
-    }
+    });
+
 });
 
 //=====================================================
