@@ -29,35 +29,37 @@ app.get("/", (req, res) => {
 //=====================================================
 // UPLOAD SIMPLES (COMPATÍVEL VBA)
 //=====================================================
-app.post("/upload-pdf", upload.single("file"), async (req, res) => {
+app.post("/upload-pdf", (req, res) => {
 
-    if (!req.file) {
-        return res.status(400).json({ erro: "sem arquivo" });
-    }
+    const chunks = [];
 
-    const fileBuffer = fs.readFileSync(req.file.path);
+    req.on("data", chunk => chunks.push(chunk));
 
-    const fileName = `pedidos/${Date.now()}.pdf`;
+    req.on("end", async () => {
 
-    const { data, error } = await supabase
-        .storage
-        .from("pdfs")
-        .upload(fileName, fileBuffer, {
-            contentType: "application/pdf",
-            upsert: true
+        const buffer = Buffer.concat(chunks);
+
+        const fileName = `pedidos/${Date.now()}.pdf`;
+
+        const { error } = await supabase
+            .storage
+            .from("pdfs")
+            .upload(fileName, buffer, {
+                contentType: "application/pdf",
+                upsert: true
+            });
+
+        if (error) {
+            return res.status(500).json(error);
+        }
+
+        res.json({
+            ok: true,
+            file: fileName
         });
 
-    fs.unlinkSync(req.file.path);
-
-    if (error) {
-        console.log(error);
-        return res.status(500).json(error);
-    }
-
-    res.json({
-        ok: true,
-        file: fileName
     });
+
 });
 
 //=====================================================
