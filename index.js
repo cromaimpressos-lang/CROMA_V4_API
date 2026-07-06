@@ -129,6 +129,18 @@ app.delete("/clientes/:id", async (req, res) => {
 //=====================================================
 // PEDIDOS
 //=====================================================
+app.post("/pedido-itens", async (req, res) => {
+    const { data, error } = await supabase
+        .from("pedido_itens")
+        .insert([req.body])
+        .select()
+        .single();
+
+    if (error) return res.status(500).json(error);
+
+    res.status(201).json(data);
+});
+
 app.get("/pedidos", async (req, res) => {
 
     const { data: pedidos, error } = await supabase
