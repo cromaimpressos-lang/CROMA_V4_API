@@ -166,39 +166,45 @@ app.get("/pedidos", async (req, res) => {
     res.json(lista);
 });
 
-app.post("/pedidos", async (req, res) => {
+app.get("/pedidos/:numero", async (req, res) => {
 
-    const numero = req.body.numero;
+    const numero = req.params.numero;
 
-    const { data: existente } = await supabase
+    const { data: pedido, error } = await supabase
         .from("pedidos")
-        .select("id")
+        .select("*")
         .eq("numero", numero)
-        .maybeSingle();
-
-    if (existente) {
-
-        const { data, error } = await supabase
-            .from("pedidos")
-            .update(req.body)
-            .eq("id", existente.id)
-            .select()
-            .single();
-
-        if (error) return res.status(500).json(error);
-
-        return res.json(data);
-    }
-
-    const { data, error } = await supabase
-        .from("pedidos")
-        .insert([req.body])
-        .select()
         .single();
 
-    if (error) return res.status(500).json(error);
+    if (error) {
+        return res.status(404).json(error);
+    }
 
-    res.status(201).json(data);
+    const { data: itens } = await supabase
+        .from("pedido_itens")
+        .select("*")
+        .eq("pedido_id", pedido.id)
+        .order("id");
+
+    res.json({
+        pedido,
+        itens
+    });
+
+});
+
+app.post("/pedidos", async (req, res) => {
+
+    const { data, error } = await supabase
+  .from("pedidos")
+  .insert([req.body])
+  .select("*")
+  .single();
+
+if (error) return res.status(500).json(error);
+
+res.status(201).json(data);
+
 });
 
 //=====================================================
